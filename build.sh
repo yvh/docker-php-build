@@ -1,33 +1,32 @@
 #!/usr/bin/env bash
 set -e
 
+DOCKER_PHP_REPO="yannickvh/php"
 DOCKER_PHP_PROD_REPO="yannickvh/php-prod"
 DOCKER_PHP_DEV_REPO="yannickvh/php-dev"
-LAST_PHP_VERSION="7.4"
-PHP_FOLDERS=( "docker-php-prod" "docker-php-dev" )
-TAG_FOLDERS=( "apache" "cli" "fpm" )
+LAST_PHP_VERSION="8.0"
 php_version=$1
 git_branch=$1
 
-if [[ $php_version = $LAST_PHP_VERSION ]];
-then
-  git_branch="master"
+if [[ $php_version = $LAST_PHP_VERSION ]]; then
+  git_branch="main"
 fi
 
-for i in "${PHP_FOLDERS[@]}"
-do
+for i in docker-php docker-php-prod docker-php-dev; do
   cd ../$i
   echo "Current dir: " $(pwd)
+  git fetch
   git checkout $git_branch
 
   if [[ $i =~ 'prod' ]]; then
     docker_repo=$DOCKER_PHP_PROD_REPO
-  else
+  elif [[ $i =~ 'dev' ]]; then
     docker_repo=$DOCKER_PHP_DEV_REPO
+  else
+    docker_repo=$DOCKER_PHP_REPO
   fi
 
-  for j in "${TAG_FOLDERS[@]}"
-  do
+  for j in apache cli fpm; do
     tag=$php_version-$j
     echo "Build $docker_repo:$tag"
     docker build -t $docker_repo:$tag $j
