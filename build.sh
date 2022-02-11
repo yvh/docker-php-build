@@ -4,7 +4,7 @@ set -e
 DOCKER_PHP_REPO="yannickvh/php"
 DOCKER_PHP_PROD_REPO="yannickvh/php-prod"
 DOCKER_PHP_DEV_REPO="yannickvh/php-dev"
-LAST_PHP_VERSION="8.0"
+LAST_PHP_VERSION="8.1"
 php_version=$1
 git_branch=$1
 
