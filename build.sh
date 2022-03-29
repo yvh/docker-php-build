@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -ex
 
 DOCKER_PHP_REPO="yannickvh/php"
 DOCKER_PHP_PROD_REPO="yannickvh/php-prod"
