@@ -1,36 +1,65 @@
 #!/usr/bin/env bash
 set -e
 
-DOCKER_PHP_REPO="yannickvh/php"
-DOCKER_PHP_PROD_REPO="yannickvh/php-prod"
-DOCKER_PHP_DEV_REPO="yannickvh/php-dev"
-GREEN='\033[0;32m' # Green color
-NC='\033[0m' # No color
-php_version=${1}
-build_arg=""
-
-if [[ ! -z "${2}" ]]; then
-    build_arg="--build-arg http_proxy=${2} --build-arg https_proxy=${2}"
-fi
-
-project_path=$(pwd)/..
-
-for i in docker-php docker-php-prod docker-php-dev; do
-  pushd ${project_path}/${i}/${php_version}
-  echo -e "${GREEN}Current dir: $(pwd)${NC}"
-
-  if [[ ${i} =~ 'prod' ]]; then
-    docker_repo=${DOCKER_PHP_PROD_REPO}
-  elif [[ $i =~ 'dev' ]]; then
-    docker_repo=${DOCKER_PHP_DEV_REPO}
-  else
-    docker_repo=${DOCKER_PHP_REPO}
+set_env() {
+  if [ -f "${1}" ]; then
+    source ${1}
   fi
+}
 
-  for j in apache cli fpm; do
-    tag=${php_version}-${j}
-    echo -e "${GREEN}Building ${docker_repo}:${tag}${NC}"
-    docker build --no-cache ${build_arg} -t ${docker_repo}:${tag} ${j}
-    docker push ${docker_repo}:${tag}
-  done
+unset_env() {
+  if [ -f "${1}" ]; then
+    unset $(grep -v '^#' ${1} | awk 'BEGIN { FS = "=" } ; { print $1 }')
+  fi
+}
+
+message() {
+  echo -e "\033[0;32m${1}\033[0m"
+}
+
+php_version=${1:-8.3}
+project_path="$(pwd)/.."
+
+for j in apache cli fpm; do
+  tag=${php_version}-${j}
+
+  pushd "${project_path}/docker-php"
+  message "Current dir: $(pwd)"
+  php_base_image="yannickvh/php:${tag}"
+  message "Building ${php_base_image}"
+  set_env ${php_version}.env
+  docker build \
+    --no-cache \
+    --tag "${php_base_image}" \
+    --file "${j}/Dockerfile" \
+    --build-arg BASE_IMAGE="${BASE_IMAGE}" \
+    --build-arg PHP_VERSION="${PHP_VERSION}" \
+    --build-arg OS_PHP_DEPS="${OS_PHP_DEPS}" \
+    .
+  docker push ${php_base_image}
+  unset_env ${php_version}.env
+
+  pushd "${project_path}/docker-php-prod"
+  message "Current dir: $(pwd)"
+  php_prod_base_image="yannickvh/php-prod:${tag}"
+  message "Building ${php_prod_base_image}"
+  docker build \
+    --no-cache \
+    --tag "${php_prod_base_image}" \
+    --file "${j}/Dockerfile" \
+    --build-arg PHP_BASE_IMAGE="${php_base_image}" \
+    .
+  docker push ${php_prod_base_image}
+
+  pushd "${project_path}/docker-php-dev"
+  message "Current dir: $(pwd)"
+  php_dev_base_image="yannickvh/php-dev:${tag}"
+  message "Building ${php_dev_base_image}"
+  docker build \
+    --no-cache \
+    --tag "${php_dev_base_image}" \
+    --file "${j}/Dockerfile" \
+    --build-arg PHP_BASE_IMAGE="${php_prod_base_image}" \
+    .
+  docker push ${php_dev_base_image}
 done
